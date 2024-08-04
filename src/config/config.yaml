@@ -1,0 +1,11 @@
+constants:
+  question_template:
+    streets: "What street is this?"
+    landmarks: "What landmark is this?"
+    areas: "What area is this?"
+  question_memory: 3
+  filler_answers:
+    streets: ["Ganzenstraat", "Pietermansstraat", "Klaverstraat"]
+    landmarks: []
+    areas: []
+  similarity_cutoff: 90

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyo
+*.pyd
+.pytest_cache
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+.pyenv/
+.pipenv/
+.Python
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Other
+cache/
+private/
