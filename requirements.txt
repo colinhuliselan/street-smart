@@ -1,0 +1,4 @@
+folium
+rapidfuzz
+streamlit
+streamlit_folium

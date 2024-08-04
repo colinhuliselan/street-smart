@@ -1,7 +1,4 @@
-from rapidfuzz import fuzz, process
-import json
-import logging
-import os
+from rapidfuzz import fuzz
 import random
 
 from config import CONFIG
@@ -83,7 +80,6 @@ class Quizz:
 
     def ask_question(self):
         if self._status == "Finished":
-            logging.info("No questions left.")
             return
         return self._current_question or self.ask_new_question()
 
@@ -92,7 +88,6 @@ class Quizz:
         if not remaining_question_ids:
             self._current_question = None
             self._status = "Finished"
-            logging.info("No questions left.")
             return
         if skipped_last and remaining_question_ids > self._skipped_question_ids:
             remaining_question_ids = remaining_question_ids - self._skipped_question_ids
