@@ -1,1 +1,1 @@
-from models.quizz import Quizz, Question
+from models.quizz import Quiz, Question
