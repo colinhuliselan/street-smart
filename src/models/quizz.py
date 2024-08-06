@@ -60,10 +60,6 @@ class Quiz:
     def n_questions(self):
         return len(self._questions)
 
-    @property
-    def n_unanswered(self):
-        return self._question_tracker.n_unanswered
-
     def init_questions(
         self,
         location_input: dict[str, dict[str, dict[str, str]]],
@@ -74,7 +70,7 @@ class Quiz:
         questions = self._generate_questions(location_input)
         if not questions:
             raise ValueError("Could not generate questions from location input.")
-        sampled_questions = self._generate_question_sample(questions, n_questions)
+        sampled_questions = self._sample_from_questions(questions, n_questions)
         self._questions = {q["id"]: q for q in sampled_questions}
 
     def _generate_questions(
@@ -100,7 +96,7 @@ class Quiz:
                 )
         return questions
 
-    def _generate_question_sample(
+    def _sample_from_questions(
         questions: set[Question], n_questions: int | None
     ) -> set[Question]:
         if not n_questions or n_questions >= len(questions):
@@ -108,84 +104,72 @@ class Quiz:
         sampled_ids = random.sample(list(questions.keys()), n_questions)
         return {questions[id] for id in sampled_ids}
 
-    def start_quiz(self):
+    def start_quiz(self) -> None:
         self._status = "In Progress"
         self.ask_question()
 
-    def get_question(self, id):
+    def get_question(self, id: str) -> None:
         return self._questions[id]
 
     @check_finish
-    def ask_question(self):
+    def ask_question(self) -> Question:
         return self._current_question or self._ask_new_question()
 
-    def _ask_new_question(self):
+    def _ask_new_question(self) -> Question:
+        """
+        Ensures skipped questions, if any, are asked last.
+        """
         remaining_question_ids = self._question_tracker.remaining
-        if not remaining_question_ids:
-            self._current_question = None
-            self._status = "Finished"
-            return
         if remaining_question_ids > self._skipped_question_ids:
             remaining_question_ids = remaining_question_ids - self._skipped_question_ids
         sampled_question_id = self._sample_random_question_id(remaining_question_ids)
-        self._question_id_history.append(sampled_question_id)
-        self._current_question = self.get_question(sampled_question_id)
-        return self._current_question
+        current_question = self.get_question(sampled_question_id)
+        self._question_tracker.update_current(current_question)
+        return current_question
+
+    def _sample_random_question_id(self, ids: list[str]) -> str:
+        for mem in range(self._memory, 0, -1):
+            ids_excl_memory = ids - set(self._question_tracker._history[-mem:])
+            if ids_excl_memory:
+                ids = ids_excl_memory
+                break
+        return random.sample(sorted(ids), 1)[0]
 
     @check_finish
-    def skip_question(self):
-        self._skipped_question_ids.add(self._current_question.id)
-        self._current_question = None
-        self.update_status()
+    def skip_question(self) -> None:
+        self._question_tracker.mark_skipped()
+        self._question_tracker.clear_current()
 
     @check_finish
-    def reveal_answer_for_question(self):
-        print("Revealing")
-        answer = self._current_question.answer
-        self._skipped_question_ids.discard(self._current_question.id)
-        self._revealed_question_ids.add(self._current_question.id)
-        self._current_question = None
-        self.update_status()
+    def reveal_answer_for_question(self) -> None:
+        answer = self._question_tracker._current_question.answer
+        self._question_tracker.mark_revealed()
+        self._question_tracker.clear_current()
         return answer
 
     @check_finish
-    def check_answer(self, answer=None):
-        if not self._current_question:
-            raise Exception("Cannot answer without current question.")
+    def check_answer(self, answer=str) -> bool:
         is_correct = self._current_question.check_answer(answer)
         if is_correct:
-            self._correct_question_ids.add(self._current_question.id)
-            self._skipped_question_ids.discard(self._current_question.id)
-            if not self._get_remaining_question_ids():
-                self._status = "Finished"
-            self._current_question = None
+            self._question_tracker.mark_correct()
+            self._question_tracker.clear_current()
         else:
-            self._incorrect_question_ids.append(self._current_question.id)
+            self._question_tracker.mark_incorrect()
         return is_correct
 
-    def get_stats(self):
+    def get_statistics(self) -> dict[str:int]:
         return {
-            "n_questions": self.get_n_questions(),
-            "n_correct_answers": len(self._correct_question_ids),
+            "n_questions": self.n_questions(),
+            "n_correct_answers": len(self._question_tracker.n_correct),
             "n_first_try": len(
                 [
                     q
-                    for q in self._correct_question_ids
-                    if q not in self._incorrect_question_ids
+                    for q in self._question_tracker._correct
+                    if q not in self._question_tracker._correct
                 ]
             ),
-            "n_unanswered": self.get_n_questions_asnwered(),
+            "n_revealed": self._question_tracker.n_revealed,
         }
-
-    def _sample_random_question_id(self, ids):
-        if len(ids) == 1:
-            return list(ids)[0]
-        memory = self._memory
-        memory = min(len(ids) - 1, self._memory, len(self._question_id_history))
-        if memory > 0:
-            ids -= set(self._question_id_history[-memory:])
-        sampled_id = random.sample(sorted(ids), 1)[0]
-        return sampled_id
 
 
 class _QuestionTracker:
@@ -193,7 +177,7 @@ class _QuestionTracker:
     Only uses ids.
     """
 
-    def __init__(self, all_question_ids=set[str]):
+    def __init__(self, all_question_ids=set[str]) -> None:
         # Static
         self._all: set[str] = all_question_ids
 
@@ -206,46 +190,51 @@ class _QuestionTracker:
         self._incorrect: set[str] = set()
 
     @property
-    def n_unanswered(self):
-        return len(self._unanswered)
+    def n_history(self) -> int:
+        return len(self._history)
 
     @property
-    def n_skipped(self):
+    def n_skipped(self) -> int:
         return len(self._skipped)
 
     @property
-    def n_revealed(self):
+    def n_revealed(self) -> int:
         return len(self._revealed)
 
     @property
-    def n_correct(self):
+    def n_correct(self) -> int:
         return len(self._correct)
 
     @property
-    def n_incorrect(self):
+    def n_incorrect(self) -> int:
         return len(self._incorrect)
 
     @property
-    def remaining(self):
+    def remaining(self) -> set[str]:
         return self._all - self._revealed - self._correct
 
-    def mark_skipped(self):
-        if question := self._current_question:
-            self._skipped.add(question["id"])
-
-    def mark_revealed(self):
-        if question := self._current_question:
-            self._revealed.add(question["id"])
+    def clear_current(self) -> None:
         self._current_question = None
 
-    def mark_correct(self):
-        if question := self._current_question:
-            self._correct.add(question["id"])
-        self._current_question = None
+    def update_current(self, question) -> None:
+        self._current_question = question
 
-    def mark_incorrect(self):
-        if question := self._current_question:
-            self._incorrect.add(question["id"])
+    def append_history(self) -> None:
+        self._history.append(self._current_question.id)
+
+    def mark_skipped(self) -> None:
+        self._skipped.add(self._current_question.id)
+        self._skipped.discard(self._current_question.id)
+
+    def mark_revealed(self) -> None:
+        self._revealed.add(self._current_question.id)
+        self._skipped.discard(self._current_question.id)
+
+    def mark_correct(self) -> None:
+        self._correct.add(self._current_question.id)
+
+    def mark_incorrect(self) -> None:
+        self._incorrect.add(self._current_question.id)
 
 
 class QuizFinishedError(Exception):
@@ -253,8 +242,8 @@ class QuizFinishedError(Exception):
 
     def __init__(
         self,
-        message="Quiz is finished.",
-    ):
+        message: str = "Quiz is finished.",
+    ) -> None:
         self.message = message
         super().__init__(self.message)
 
