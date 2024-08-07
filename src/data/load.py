@@ -1,11 +1,14 @@
 import pickle
 import json
 import os
+from types import SimpleNamespace
 
 
 def load_geodf():
-    with open(os.path.join("data", "rdam_gdf.pkl"), "rb") as file:
-        return pickle.load(file)
+    gdf = SimpleNamespace()
+    for network_type in ["drive", "walk"]:
+        with open(os.path.join("data", f"rdam_gdf_{network_type}.pkl"), "rb") as file:
+            setattr(gdf, network_type, pickle.load(file))
 
 
 def load_locations():
