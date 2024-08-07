@@ -1,1 +1,1 @@
-from models.quizz import Quiz, Question
+from models.quizz import Quiz, Question, QuizFinishedError

@@ -1,7 +1,6 @@
+from __future__ import annotations
 from rapidfuzz import fuzz
 import random
-from types import SimpleNamespace
-from __future__ import annotations
 
 from config import CONFIG
 
@@ -10,7 +9,7 @@ CONSTANTS = CONFIG["constants"]
 
 def check_finish(func):
     """
-    Can be used as decorator to verify if the quizz has finished, and/or should be finished
+    Can be used as decorator to verify if the quiz has finished, and/or should be finished
     because there are no more questions left.
     """
 
@@ -19,7 +18,7 @@ def check_finish(func):
             raise QuizFinishedError()
         result = func(self, *args, **kwargs)
         if not self._question_tracker.remaining:
-            self._finish_quiz
+            self.finish_quiz()
         return result
 
     return wrapper
@@ -38,9 +37,8 @@ class Quiz:
         self._location_types: list[str] = location_types
         self._question_type: str = question_type
         self._memory: int = CONSTANTS["question_memory"]
-        self._questions: dict[str:Question] = self.init_questions(
-            location_input, n_questions
-        )
+        self._questions: dict = dict()
+        self.init_questions(location_input, n_questions)
 
         # Dynamic
         self._status: str = "Initialized"
@@ -54,7 +52,7 @@ class Quiz:
 
     @property
     def current_question(self) -> Question:
-        return self._current_question
+        return self._question_tracker._current_question
 
     @property
     def n_questions(self):
@@ -71,7 +69,7 @@ class Quiz:
         if not questions:
             raise ValueError("Could not generate questions from location input.")
         sampled_questions = self._sample_from_questions(questions, n_questions)
-        self._questions = {q["id"]: q for q in sampled_questions}
+        self._questions = {q.id: q for q in sampled_questions}
 
     def _generate_questions(
         self, location_input: dict[str, dict[str, dict[str, str]]]
@@ -88,7 +86,7 @@ class Quiz:
                         location_name=name,
                         location_type=type,
                         question_type=self._question_type,
-                        question=CONSTANTS["question_template"][type],
+                        question_prompt=CONSTANTS["question_template"][type],
                         answer=name,
                         hint=details["description"],
                         all_options=all_locations,
@@ -97,7 +95,7 @@ class Quiz:
         return questions
 
     def _sample_from_questions(
-        questions: set[Question], n_questions: int | None
+        self, questions: set[Question], n_questions: int | None
     ) -> set[Question]:
         if not n_questions or n_questions >= len(questions):
             return questions
@@ -108,20 +106,25 @@ class Quiz:
         self._status = "In Progress"
         self.ask_question()
 
+    def finish_quiz(self) -> None:
+        self._status = "Finished"
+
     def get_question(self, id: str) -> None:
         return self._questions[id]
 
     @check_finish
     def ask_question(self) -> Question:
-        return self._current_question or self._ask_new_question()
+        return self.current_question or self._ask_new_question()
 
     def _ask_new_question(self) -> Question:
         """
         Ensures skipped questions, if any, are asked last.
         """
         remaining_question_ids = self._question_tracker.remaining
-        if remaining_question_ids > self._skipped_question_ids:
-            remaining_question_ids = remaining_question_ids - self._skipped_question_ids
+        if remaining_question_ids > self._question_tracker._skipped:
+            remaining_question_ids = (
+                remaining_question_ids - self._question_tracker._skipped
+            )
         sampled_question_id = self._sample_random_question_id(remaining_question_ids)
         current_question = self.get_question(sampled_question_id)
         self._question_tracker.update_current(current_question)
@@ -141,15 +144,15 @@ class Quiz:
         self._question_tracker.clear_current()
 
     @check_finish
-    def reveal_answer_for_question(self) -> None:
-        answer = self._question_tracker._current_question.answer
+    def reveal_answer(self) -> None:
+        answer = self.current_question.answer
         self._question_tracker.mark_revealed()
         self._question_tracker.clear_current()
         return answer
 
     @check_finish
     def check_answer(self, answer=str) -> bool:
-        is_correct = self._current_question.check_answer(answer)
+        is_correct = self.current_question.check_answer(answer)
         if is_correct:
             self._question_tracker.mark_correct()
             self._question_tracker.clear_current()
@@ -159,13 +162,13 @@ class Quiz:
 
     def get_statistics(self) -> dict[str:int]:
         return {
-            "n_questions": self.n_questions(),
-            "n_correct_answers": len(self._question_tracker.n_correct),
+            "n_questions": self.n_questions,
+            "n_correct_answers": self._question_tracker.n_correct,
             "n_first_try": len(
                 [
                     q
                     for q in self._question_tracker._correct
-                    if q not in self._question_tracker._correct
+                    if q not in self._question_tracker._incorrect
                 ]
             ),
             "n_revealed": self._question_tracker.n_revealed,
@@ -250,19 +253,28 @@ class QuizFinishedError(Exception):
 
 class Question:
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(
+        self,
+        id: str,
+        location_name: str,
+        location_type: str,
+        question_type: str,
+        question_prompt: str,
+        answer: str,
+        all_options: set[str],
+        hint: str | None = None,
+    ) -> None:
         # Static
-        self._id = kwargs.get("id")
-        self._location_name = kwargs.get("location_name")
-        self._location_type = kwargs.get("location_type")
-        self._question_type = kwargs.get("question_type")
-        self._question = kwargs.get("question")
-        self._answer = kwargs.get("answer")
-        self._hint = kwargs.get("hint")
-        self._all_options = kwargs.get("all_options")
+        self._id: str = id
+        self._location_name: str = location_name
+        self._location_type: str = location_type
+        self._question_type: str = question_type
+        self._question_prompt: str = question_prompt
+        self._answer: str = answer
+        self._all_options: set = all_options
+        self._hint: str = hint
 
         # Dynamic
-        self._previous_options = None
         self._answer_history = []
 
     @property
