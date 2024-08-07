@@ -99,8 +99,8 @@ class Quiz:
     ) -> set[Question]:
         if not n_questions or n_questions >= len(questions):
             return questions
-        sampled_ids = random.sample(list(questions.keys()), n_questions)
-        return {questions[id] for id in sampled_ids}
+        sampled_ids = random.sample([q.id for q in questions], n_questions)
+        return {q for q in questions if q.id in sampled_ids}
 
     def start_quiz(self) -> None:
         self._status = "In Progress"
