@@ -4,25 +4,25 @@ from streamlit_folium import st_folium
 from types import SimpleNamespace
 
 from data import LOCATIONS, GEODF
-from models import Quizz
+from models import Quiz
 
 
 def main():
-    st.title("The big Roffa quizz")
+    st.title("The big Roffa quiz")
     st.text("")
 
     # INIT
     state = get_state()
 
-    if not state.quizz:
+    if not state.quiz:
         get_user_input(state)
         st.stop()
 
-    if state.quizz.status == "Finished":
-        handle_quizz_finish(state)
-    question = state.quizz.ask_question()
+    if state.quiz.status == "Finished":
+        handle_quiz_finish(state)
+    question = state.quiz.ask_question()
 
-    show_progress_bar(state.quizz)
+    show_progress_bar(state.quiz)
 
     st.header(question.question)
     with st.expander("See hint"):
@@ -35,7 +35,7 @@ def main():
         answer_submitted = st.button("Submit")
 
     if answer_submitted:
-        is_correct = state.quizz.check_answer(provided_answer)
+        is_correct = state.quiz.check_answer(provided_answer)
         st.text(f"Answer is {is_correct}!")
 
     map = create_blank_map()
@@ -53,7 +53,7 @@ def main():
     col1, col2 = st.columns(2)
     # Place the "Skip" button in the first column
     with col1:
-        st.button("Skip", on_click=state.quizz.skip_question)
+        st.button("Skip", on_click=state.quiz.skip_question)
     with col2:
         if st.button("Show answer"):
             handle_show_answer(state)
@@ -61,38 +61,38 @@ def main():
 
 def get_user_input(state):
     st.session_state["question_type"] = st.selectbox(
-        "Choose a quizz type", ["Open answer"], 0
+        "Choose a quiz type", ["Open answer"], 0
     )
     st.session_state["location_types"] = st.multiselect(
-        "What type of locations do you qant to quizz?", ["streets"], ["streets"]
+        "What type of locations do you qant to quiz?", ["streets"], ["streets"]
     )
     st.session_state["n_questions"] = st.slider(
         "Number of questions", 5, len(LOCATIONS["streets"]), 5
     )
     state = get_state()  # Defaults do not retrigger
     st.write("\n\n\n")  # Add space
-    if st.button("Start quizz!", on_click=start_quizz, args=[state]):
+    if st.button("Start quiz!", on_click=start_quiz, args=[state]):
         if not validate_input(state):
             st.text("WARNING: Please supply all inputs")
 
 
-def start_quizz(state):
+def start_quiz(state):
     if not validate_input(state):
         return
-    quizz = Quizz(
-        locations=LOCATIONS,
+    quiz = Quiz(
+        location_input=LOCATIONS,
         question_type=state.question_type,
         location_types=state.location_types,
         n_questions=state.n_questions,
     )
-    quizz.ask_question()
-    st.session_state["quizz"] = quizz
+    quiz.ask_question()
+    st.session_state["quiz"] = quiz
     return
 
 
-def show_progress_bar(quizz):
-    n_answered = quizz.get_n_questions_asnwered()
-    n_questions = quizz.get_n_questions()
+def show_progress_bar(quiz):
+    n_answered = quiz.get_n_questions_asnwered()
+    n_questions = quiz.get_n_questions()
     st.progress(
         n_answered / float(n_questions),
         f"Questions answered: {n_answered}/{n_questions}",
@@ -105,7 +105,7 @@ def validate_input(state):
 
 def get_state():
     state = SimpleNamespace(
-        quizz=st.session_state.get("quizz"),
+        quiz=st.session_state.get("quiz"),
         question_type=st.session_state.get("question_type"),
         location_types=st.session_state.get("location_types"),
         n_questions=st.session_state.get("n_questions"),
@@ -114,15 +114,15 @@ def get_state():
 
 
 def handle_show_answer(state):
-    answer = state.quizz._current_question.answer
+    answer = state.quiz._current_question.answer
     st.text(f"The answer is {answer}")
-    st.button("Continue", on_click=state.quizz.reveal_answer)
+    st.button("Continue", on_click=state.quiz.reveal_answer)
 
 
-def handle_quizz_finish(state):
+def handle_quiz_finish(state):
     st.balloons()
     st.header("Finished!")
-    stats = state.quizz.get_stats()
+    stats = state.quiz.get_stats()
     st.text(f"Total questions: {stats["n_questions"]}")
     st.text(f"Correct answers: {stats["n_correct_answers"]}")
     st.text(f"Correct on first try: {stats["n_first_try"]}")
@@ -131,14 +131,23 @@ def handle_quizz_finish(state):
 
 def generate_feature_groups(locations, _geodf):
     fg_dict = {}
+    geo_json_generated = False
     for loc in locations["streets"].keys():
-        loc_gdf = _geodf[_geodf["name"] == loc]
-        geo_json = folium.GeoJson(
-            loc_gdf, style_function=lambda feature: {"color": "red", "weight": 5}
-        )
-        feature_group = folium.FeatureGroup(name=loc)
-        feature_group.add_child(geo_json)
-        fg_dict[loc] = feature_group
+        for geodf in [_geodf.drive, _geodf.walk]:
+            loc_gdf = geodf[geodf["name"] == loc]
+            if len(loc_gdf) > 0:
+                break
+            geo_json = folium.GeoJson(
+                loc_gdf, style_function=lambda feature: {"color": "red", "weight": 5}
+            )
+            feature_group = folium.FeatureGroup(name=loc)
+            feature_group.add_child(geo_json)
+            fg_dict[loc] = feature_group
+            if len(loc_gdf) > 0:
+                geo_json_generated = True
+                break
+        if not geo_json_generated:
+            raise Exception(f"Could not generate geojson for {loc}")
     return fg_dict
 
 
