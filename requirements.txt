@@ -1,4 +1,5 @@
 folium
+geopandas
 pyyaml
 rapidfuzz
 streamlit
