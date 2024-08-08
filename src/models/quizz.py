@@ -55,8 +55,12 @@ class Quiz:
         return self._question_tracker._current_question
 
     @property
-    def n_questions(self):
+    def n_questions_total(self):
         return len(self._questions)
+
+    @property
+    def n_questions_remaining(self):
+        return self._question_tracker.n_remaining
 
     def init_questions(
         self,
@@ -162,7 +166,7 @@ class Quiz:
 
     def get_statistics(self) -> dict[str:int]:
         return {
-            "n_questions": self.n_questions,
+            "n_questions": self.n_questions_total,
             "n_correct_answers": self._question_tracker.n_correct,
             "n_first_try": len(
                 [
@@ -215,6 +219,10 @@ class _QuestionTracker:
     @property
     def remaining(self) -> set[str]:
         return self._all - self._revealed - self._correct
+
+    @property
+    def n_remaining(self) -> int:
+        return len(self.remaining)
 
     def clear_current(self) -> None:
         self._current_question = None
@@ -283,7 +291,7 @@ class Question:
 
     @property
     def question(self):
-        return self._question
+        return self._question_prompt
 
     @property
     def answer(self):

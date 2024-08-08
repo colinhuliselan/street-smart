@@ -24,7 +24,7 @@ def main():
 
     show_progress_bar(state.quiz)
 
-    st.header(question.question)
+    st.header(question._question_prompt)
     with st.expander("See hint"):
         st.write(question.hint)
 
@@ -91,11 +91,12 @@ def start_quiz(state):
 
 
 def show_progress_bar(quiz):
-    n_answered = quiz.get_n_questions_asnwered()
-    n_questions = quiz.get_n_questions()
+    n_total = quiz.n_questions_total
+    n_remaining = quiz.n_questions_remaining
+    n_answered = n_total - n_remaining
     st.progress(
-        n_answered / float(n_questions),
-        f"Questions answered: {n_answered}/{n_questions}",
+        n_answered / float(n_total),
+        f"Questions answered: {n_answered}/{n_total}",
     )
 
 
@@ -131,23 +132,21 @@ def handle_quiz_finish(state):
 
 def generate_feature_groups(locations, _geodf):
     fg_dict = {}
-    geo_json_generated = False
     for loc in locations["streets"].keys():
         for geodf in [_geodf.drive, _geodf.walk]:
             loc_gdf = geodf[geodf["name"] == loc]
             if len(loc_gdf) > 0:
-                break
-            geo_json = folium.GeoJson(
-                loc_gdf, style_function=lambda feature: {"color": "red", "weight": 5}
-            )
-            feature_group = folium.FeatureGroup(name=loc)
-            feature_group.add_child(geo_json)
-            fg_dict[loc] = feature_group
-            if len(loc_gdf) > 0:
-                geo_json_generated = True
-                break
-        if not geo_json_generated:
+                geo_json = folium.GeoJson(
+                    loc_gdf, style_function=lambda feature: {"color": "red", "weight": 5}
+                )
+                feature_group = folium.FeatureGroup(name=loc)
+                feature_group.add_child(geo_json)
+                fg_dict[loc] = feature_group
+                break # prioritize drive
+        if not fg_dict.get(loc):
             raise Exception(f"Could not generate geojson for {loc}")
+        else:
+            print(f"Feature group created for {loc}")
     return fg_dict
 
 
