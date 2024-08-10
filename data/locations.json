@@ -10,25 +10,25 @@
       "description": "A major shopping street in Rotterdam with a distinctive underground shopping area known as the 'Koopgoot.' It connects the Lijnbaan with the Coolsingel and is popular for shopping and dining."
     },
     "Witte de Withstraat": {
-      "description": "Known for its vibrant cultural scene, this street is lined with trendy bars, restaurants, and art galleries. It\u00e2\u20ac\u2122s a popular spot for both locals and tourists looking to experience Rotterdam's nightlife and creative scene."
+      "description": "Known for its vibrant cultural scene, this street is lined with trendy bars, restaurants, and art galleries. It's a popular spot for both locals and tourists looking to experience Rotterdam's nightlife and creative scene."
     },
     "Hofplein": {
-      "description": "A major square and street in Rotterdam, it\u00e2\u20ac\u2122s known for its distinctive architecture and its role as a central transport hub in the city. The Hofplein is surrounded by notable buildings and landmarks."
+      "description": "A major square and street in Rotterdam, it's known for its distinctive architecture and its role as a central transport hub in the city. The Hofplein is surrounded by notable buildings and landmarks."
     },
     "Schouwburgplein": {
-      "description": "This square and street area is known for its cultural institutions, including the Rotterdamse Schouwburg (Rotterdam Theater). It\u00e2\u20ac\u2122s a central location for events and performances."
+      "description": "This square and street area is known for its cultural institutions, including the Rotterdamse Schouwburg (Rotterdam Theater). It's a central location for events and performances."
     },
     "Blaak": {
-      "description": "An important street that runs through the heart of Rotterdam\u00e2\u20ac\u2122s business district and is home to iconic structures like the Cube Houses (Kubuswoningen) and the Markthal, a modern market hall with a striking design."
+      "description": "An important street that runs through the heart of Rotterdam's business district and is home to iconic structures like the Cube Houses (Kubuswoningen) and the Markthal, a modern market hall with a striking design."
     },
     "Goudsesingel": {
       "description": "A major road in Rotterdam that runs along the old city boundary and is lined with various historic buildings and modern developments."
     },
     "West-Kruiskade": {
-      "description": "Known for its diverse array of shops, restaurants, and cultural institutions. It reflects Rotterdam\u00e2\u20ac\u2122s multicultural aspect and offers a variety of international cuisines and shops."
+      "description": "Known for its diverse array of shops, restaurants, and cultural institutions. It reflects Rotterdam's multicultural aspect and offers a variety of international cuisines and shops."
     },
     "Kruiskade": {
-      "description": "This street connects several important areas in Rotterdam and is known for its blend of commercial activity and residential buildings. It\u00e2\u20ac\u2122s also close to Rotterdam Central Station, making it a key transit route."
+      "description": "This street connects several important areas in Rotterdam and is known for its blend of commercial activity and residential buildings. It's also close to Rotterdam Central Station, making it a key transit route."
     },
     "Nieuwe Binnenweg": {
       "description": "A long street known for its eclectic mix of shops, cafes, and nightlife venues. It is a popular area for both shopping and entertainment."
@@ -90,9 +90,6 @@
     "Marconistraat": {
       "description": "Located in a vibrant neighborhood, known for its creative businesses and modern residential developments."
     },
-    "Spanjaardslaan": {
-      "description": "A charming street in the historic part of the city, featuring old-world architecture and scenic views."
-    },
     "Goudse Rijweg": {
       "description": "A significant road in the eastern part of the city, offering a mix of residential and commercial properties."
     },
@@ -125,9 +122,6 @@
     },
     "Benthuizerstraat": {
       "description": "A busy street with a variety of shops and services, serving as a key commercial area in the city."
-    },
-    "Witteveenweg": {
-      "description": "Located in a vibrant neighborhood, known for its creative businesses and modern residential developments."
     },
     "Statenweg": {
       "description": "A major road in the northern part of the city, offering a mix of residential and commercial properties."
