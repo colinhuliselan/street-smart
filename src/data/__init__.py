@@ -1,4 +1,4 @@
-from data.load import load_geodf, load_locations
+from data.load import load_geodfs, load_locations
 
-GEODF = load_geodf()
+GEODFS = load_geodfs()
 LOCATIONS = load_locations()

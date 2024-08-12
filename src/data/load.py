@@ -4,7 +4,7 @@ import os
 from types import SimpleNamespace
 
 
-def load_geodf():
+def load_geodfs():
     with open(os.path.join("data", f"rdam_gdfs.pkl"), "rb") as file:
         return pickle.load(file)
 
