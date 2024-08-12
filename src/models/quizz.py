@@ -62,6 +62,10 @@ class Quiz:
     def n_questions_remaining(self):
         return self._question_tracker.n_remaining
 
+    @property
+    def n_questions_skipped(self):
+        return self._question_tracker.n_skipped
+
     def init_questions(
         self,
         location_input: dict[str, dict[str, dict[str, str]]],
@@ -132,6 +136,7 @@ class Quiz:
         sampled_question_id = self._sample_random_question_id(remaining_question_ids)
         current_question = self.get_question(sampled_question_id)
         self._question_tracker.update_current(current_question)
+        self._question_tracker.append_history()
         return current_question
 
     def _sample_random_question_id(self, ids: list[str]) -> str:
@@ -148,18 +153,21 @@ class Quiz:
         self._question_tracker.clear_current()
 
     @check_finish
-    def reveal_answer(self) -> None:
+    def reveal_answer(self, progress_quiz: bool) -> None:
         answer = self.current_question.answer
+        if not progress_quiz:
+            return answer
         self._question_tracker.mark_revealed()
         self._question_tracker.clear_current()
         return answer
 
     @check_finish
-    def check_answer(self, answer=str) -> bool:
+    def check_answer(self, answer: str, progress_quiz: bool) -> bool:
         is_correct = self.current_question.check_answer(answer)
         if is_correct:
-            self._question_tracker.mark_correct()
-            self._question_tracker.clear_current()
+            if progress_quiz:
+                self._question_tracker.mark_correct()
+                self._question_tracker.clear_current()
         else:
             self._question_tracker.mark_incorrect()
         return is_correct
@@ -235,7 +243,6 @@ class _QuestionTracker:
 
     def mark_skipped(self) -> None:
         self._skipped.add(self._current_question.id)
-        self._skipped.discard(self._current_question.id)
 
     def mark_revealed(self) -> None:
         self._revealed.add(self._current_question.id)
@@ -282,15 +289,12 @@ class Question:
         self._all_options: set = all_options
         self._hint: str = hint
 
-        # Dynamic
-        self._answer_history = []
-
     @property
     def id(self):
         return self._id
 
     @property
-    def question(self):
+    def question_prompt(self):
         return self._question_prompt
 
     @property
