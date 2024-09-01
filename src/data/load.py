@@ -18,7 +18,6 @@ if __name__ == "__main__":
     """
     Inspect data.
     """
-    with open(".\\data\\rdam_gdf.pkl", "rb") as file:
-        rdam_gdf = pickle.load(file)
-    print(rdam_gdf.columns)
-    print(rdam_gdf.head(5))
+    geodfs = load_geodfs()
+    gdf = geodfs[0]
+    print(gdf.head(5))

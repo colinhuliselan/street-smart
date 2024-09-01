@@ -16,12 +16,10 @@ def create_and_store_gdfs(network_types):
         graph = ox.convert.to_undirected(
             ox.graph_from_place("Rotterdam, Netherlands", network_type=network_type)
         )
-        # with open(os.path.join("data", f"rdam_graph_{network_type}.pkl"), "wb") as file:
-        #     pickle.dump(graph, file)
 
-        gdf = ox.graph_to_gdfs(graph, nodes=False)
+        gdf = ox.graph_to_gdfs(graph, nodes=True, edges=False)
         gdfs.append(gdf)
-    with open(os.path.join("data", f"rdam_gdfs.pkl"), "wb") as file:
+    with open(os.path.join("data", f"rotterdam_gdfs.pkl"), "wb") as file:
         pickle.dump(gdfs, file)
     return gdfs
 

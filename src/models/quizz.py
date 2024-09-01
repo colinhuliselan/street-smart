@@ -86,7 +86,7 @@ class Quiz:
         for i, (type, locations) in enumerate(location_input.items()):
             if type not in self._location_types:
                 continue
-            all_locations = list(locations.keys())
+            all_locations = set(locations.keys())
             for j, (name, details) in enumerate(locations.items()):
                 questions.add(
                     Question(
@@ -135,6 +135,7 @@ class Quiz:
             )
         sampled_question_id = self._sample_random_question_id(remaining_question_ids)
         current_question = self.get_question(sampled_question_id)
+        current_question.set_multiple_choice_options()
         self._question_tracker.update_current(current_question)
         self._question_tracker.append_history()
         return current_question
@@ -288,6 +289,10 @@ class Question:
         self._answer: str = answer
         self._all_options: set = all_options
         self._hint: str = hint
+        self._multiple_choice_options: list = list()
+
+        if self._question_type == "Multiple choice":
+            self.set_multiple_choice_options()
 
     @property
     def id(self):
@@ -309,6 +314,10 @@ class Question:
     def all_options(self):
         return self._all_options
 
+    @property
+    def multiple_choice_options(self):
+        return self._multiple_choice_options
+
     def check_answer(self, answer):
         is_correct = False
         if self._question_type == "Open answer":
@@ -318,10 +327,17 @@ class Question:
             is_correct = self.answer == answer
         return is_correct
 
-    def generate_options(self, number=4):
-        return random.shuffle(
-            random.sample(self._all_options, number - 1) + [self._answer]
-        )
+    def generate_multiple_choice_options(self, number=4):
+        options = random.sample(
+            sorted(self._all_options - set([self._answer])), number - 1
+        ) + [self._answer]
+        random.shuffle(options)
+        return options
+
+    def set_multiple_choice_options(self):
+        if self._question_type != "Multiple choice":
+            return
+        self._multiple_choice_options = self.generate_multiple_choice_options()
 
     def __eq__(self, other):
         return isinstance(other, Question) and self._id == other._id
