@@ -6,9 +6,9 @@ from geopandas import GeoDataFrame
 from data import GEODFS
 
 
-def display_map(location: str, locations: list[str]) -> None:
+def display_map(location: str, locations: list[str], use_satellite_layer: bool) -> None:
     print(location)
-    map = create_blank_map()
+    map = create_blank_map(use_satellite_layer)
     feature_groups = generate_feature_groups(locations, GEODFS)
     lat, lon = calculate_average_coord(location, GEODFS)
     st_folium(
@@ -44,7 +44,7 @@ def filter_geodfs(location: str, _geodfs: list[GeoDataFrame]) -> GeoDataFrame:
 
 
 @st.cache_data
-def create_blank_map() -> None:
+def create_blank_map(use_satellite_layer: bool) -> None:
     centre_lat = 51.9225
     centre_lon = 4.47917
     max_dist = 0.1
@@ -54,7 +54,7 @@ def create_blank_map() -> None:
         width=800,
         height=400,
         # tiles="cartodb voyagernolabels",
-        tiles="esri worldimagery",
+        tiles="esri worldimagery" if use_satellite_layer else "cartodb voyagernolabels",
         max_bounds=True,
         min_lat=centre_lat - max_dist,
         max_lat=centre_lat + max_dist,

@@ -86,15 +86,12 @@ def display_progress(state: SimpleNamespace) -> None:
 def display_question(state: SimpleNamespace) -> None:
     quiz = state.quiz
     question = quiz.ask_question()
-    with st.container(border=True):
+    with st.container(border=True, height=600):
         st.header(question.question_prompt)
+        satellite_toggle = st.toggle("Satellite")
         location = question.answer
         locations = list(LOCATIONS["streets"].keys())
-        map.display_map(location, locations)
-
-
-def display_map(state: SimpleNamespace) -> None:
-    st.text(f"A map for {state.quiz.current_question.answer}")
+        map.display_map(location, locations, satellite_toggle)
 
 
 def display_answer_input(state: SimpleNamespace) -> None:
