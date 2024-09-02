@@ -3,81 +3,191 @@ import folium
 from streamlit_folium import st_folium
 from types import SimpleNamespace
 
-from data import LOCATIONS, GEODF
+from data import LOCATIONS, GEODFS
 from models import Quiz
+from lib import map
+
+STATE_VARIABLES = [
+    "quiz",
+    "question_type",
+    "location_types",
+    "n_questions",
+    "await_continue_reason",
+    "provided_answer",
+    "open_answer",
+]
 
 
-def main():
-    st.title("The big Roffa quiz")
-    st.text("")
-
-    # INIT
+def main() -> None:
+    print("Rerun -------------------")
     state = get_state()
-
+    st.title("StreetSmart Topography Quiz")
+    with st.sidebar:
+        display_quiz_settings(state)
     if not state.quiz:
-        get_user_input(state)
-        st.stop()
+        with st.container(border=True):
+            st.header("Fill out settings in the sidebar to start")
+    elif state.quiz.status == "Finished":
+        display_progress(state)
+        display_finish_statistics(state)
+    else:
+        display_progress(state)
+        display_question(state)
+        display_answer_input(state)
 
-    if state.quiz.status == "Finished":
-        handle_quiz_finish(state)
-    question = state.quiz.ask_question()
 
-    show_progress_bar(state.quiz)
+def display_quiz_settings(state: SimpleNamespace) -> None:
+    with st.form("Quiz settings"):
+        st.selectbox(
+            "Choose a quiz type",
+            ["Open answer", "Multiple choice"],
+            0,
+            key="question_type",
+        )
+        st.multiselect(
+            "Choose locations types to quiz",
+            ["streets"],
+            ["streets"],
+            key="location_types",
+        )
+        st.slider(
+            "Choose number of questions",
+            5,
+            len(LOCATIONS["streets"]),
+            5,
+            key="n_questions",
+        )
+        button_text = "Start" if not state.quiz else "Restart"
+        st.form_submit_button(button_text, on_click=handle_settings_submit_click)
 
-    st.header(question._question_prompt)
-    with st.expander("See hint"):
-        st.write(question.hint)
 
-    provided_answer = str
-    answer_submitted = bool
-    if state.question_type == "Open answer":
-        provided_answer = st.text_input("Your answer")
-        answer_submitted = st.button("Submit")
+def display_finish_statistics(state: SimpleNamespace) -> None:
+    stats = state.quiz.get_statistics()
+    st.balloons()
+    st.header("Finished!")
+    st.text(f'Total questions: {stats["n_questions"]}')
+    st.text(f'Correct answers: {stats["n_correct_answers"]}')
+    st.text(f'Correct on first try: {stats["n_first_try"]}')
+    st.text(f'Revealed: {stats["n_revealed"]}')
 
-    if answer_submitted:
-        is_correct = state.quiz.check_answer(provided_answer)
-        st.text(f"Answer is {is_correct}!")
 
-    map = create_blank_map()
-    fg_dict = generate_feature_groups(LOCATIONS, GEODF)
-    location = question.answer
-    st_folium(
-        map,
-        width=800,
-        height=450,
-        returned_objects=[],
-        feature_group_to_add=fg_dict[location],
+def display_progress(state: SimpleNamespace) -> None:
+    quiz = state.quiz
+    n_total = quiz.n_questions_total
+    n_remaining = quiz.n_questions_remaining
+    n_skipped = quiz.n_questions_skipped
+    n_answered = n_total - n_remaining
+    st.progress(
+        n_answered / float(n_total),
+        f"Questions answered: {n_answered}/{n_total} ({n_skipped} skipped)",
     )
 
-    # Create two columns
-    col1, col2 = st.columns(2)
-    # Place the "Skip" button in the first column
-    with col1:
-        st.button("Skip", on_click=state.quiz.skip_question)
-    with col2:
-        if st.button("Show answer"):
-            handle_show_answer(state)
+
+def display_question(state: SimpleNamespace) -> None:
+    quiz = state.quiz
+    question = quiz.ask_question()
+    with st.container(border=True):
+        st.header(question.question_prompt)
+        location = question.answer
+        locations = list(LOCATIONS["streets"].keys())
+        map.display_map(location, locations)
 
 
-def get_user_input(state):
-    st.session_state["question_type"] = st.selectbox(
-        "Choose a quiz type", ["Open answer"], 0
-    )
-    st.session_state["location_types"] = st.multiselect(
-        "What type of locations do you qant to quiz?", ["streets"], ["streets"]
-    )
-    st.session_state["n_questions"] = st.slider(
-        "Number of questions", 5, len(LOCATIONS["streets"]), 5
-    )
-    state = get_state()  # Defaults do not retrigger
-    st.write("\n\n\n")  # Add space
-    if st.button("Start quiz!", on_click=start_quiz, args=[state]):
-        if not validate_input(state):
-            st.text("WARNING: Please supply all inputs")
+def display_map(state: SimpleNamespace) -> None:
+    st.text(f"A map for {state.quiz.current_question.answer}")
 
 
-def start_quiz(state):
-    if not validate_input(state):
+def display_answer_input(state: SimpleNamespace) -> None:
+    quiz = state.quiz
+    question = quiz.current_question
+    question_type = state.question_type
+    awaiting_continue = state.await_continue_reason is not None
+    provided_answer = state.provided_answer
+
+    if question_type == "Open answer":
+        display_open_question_input(state)
+    elif question_type == "Multiple choice":
+        display_mc_question_input(state)
+    else:
+        raise ValueError(f"Cannot handle {question_type=}")
+
+    feedback_container = st.container(border=False)
+
+    if provided_answer:
+        is_correct = quiz.check_answer(provided_answer, progress_quiz=False)
+        if is_correct:
+            feedback_container.success(f'Correct! The answer is "{question.answer}".')
+        elif not is_correct and not awaiting_continue:
+            feedback_container.error(
+                f'Oops! "{provided_answer}" is not correct. Try again!'
+            )
+
+    col_1, col_2, col_3 = st.columns(3)
+    with col_1:
+        st.button(
+            "Continue",
+            disabled=not awaiting_continue,
+            on_click=handle_continue_click,
+            args=(state, provided_answer),
+        )
+    with col_2:
+        st.button(
+            "Skip question",
+            disabled=awaiting_continue,
+            on_click=handle_skip_question_click,
+        )
+    with col_3:
+        if st.button(
+            "Reveal answer",
+            disabled=awaiting_continue,
+            on_click=handle_reveal_answer_click,
+        ):
+            answer = quiz.reveal_answer(progress_quiz=False)
+            feedback_container.warning(
+                f'Spoiler alert! The correct answer is "{answer}".'
+            )
+
+
+def display_open_question_input(state: SimpleNamespace) -> None:
+    provided_answer = state.provided_answer
+    question = state.quiz.current_question
+    awaiting_continue = state.await_continue_reason is not None
+    with st.form("Open answer"):
+        st.text_input("Enter your answer", provided_answer, key="open_answer")
+        with st.expander("See hint"):
+            st.write(question.hint)
+        st.form_submit_button(
+            "Submit",
+            disabled=awaiting_continue,
+            on_click=handle_answer_submit_click,
+        )
+
+
+def display_mc_question_input(state: SimpleNamespace) -> None:
+    question = state.quiz.current_question
+    awaiting_continue = state.await_continue_reason is not None
+    with st.container(border=True):
+        col1, col2 = st.columns(2)
+        options = question.multiple_choice_options
+        for button_index in range(len(options)):
+            col = col1 if button_index + 1 <= len(options) / 2.0 else col2
+            with col:
+                st.button(
+                    options[button_index],
+                    key=f"mc_button_{button_index}",
+                    disabled=awaiting_continue,
+                    on_click=handle_multiple_choice_click,
+                    args=[button_index],
+                )
+
+
+def handle_settings_submit_click() -> None:
+    """
+    Callback s.t. submit button can be altered to Restart.
+    """
+    state = get_state()
+    if not (state.question_type and state.location_types and state.n_questions):
+        st.text("Please supply all inputs")
         return
     quiz = Quiz(
         location_input=LOCATIONS,
@@ -85,90 +195,75 @@ def start_quiz(state):
         location_types=state.location_types,
         n_questions=state.n_questions,
     )
-    quiz.ask_question()
+    quiz.start_quiz()
     st.session_state["quiz"] = quiz
-    return
 
 
-def show_progress_bar(quiz):
-    n_total = quiz.n_questions_total
-    n_remaining = quiz.n_questions_remaining
-    n_answered = n_total - n_remaining
-    st.progress(
-        n_answered / float(n_total),
-        f"Questions answered: {n_answered}/{n_total}",
-    )
+def handle_answer_submit_click() -> None:
+    """
+    Callback s.t. submit button can be disabled when answer is correct.
+    """
+    state = get_state()
+    st.session_state["provided_answer"] = state.open_answer
+    quiz = state.quiz
+    is_correct = quiz.check_answer(state.open_answer, progress_quiz=False)
+    if is_correct:
+        st.session_state["await_continue_reason"] = "answer_submission"
 
 
-def validate_input(state):
-    return state.question_type and state.location_types and state.n_questions
+def handle_multiple_choice_click(button_index: int) -> None:
+    state = get_state()
+    quiz = state.quiz
+    question = quiz.current_question
+    mc_answer = question.multiple_choice_options[button_index]
+    st.session_state["provided_answer"] = mc_answer
+    is_correct = quiz.check_answer(mc_answer, progress_quiz=False)
+    if is_correct:
+        st.session_state["await_continue_reason"] = "answer_submission"
 
 
-def get_state():
-    state = SimpleNamespace(
-        quiz=st.session_state.get("quiz"),
-        question_type=st.session_state.get("question_type"),
-        location_types=st.session_state.get("location_types"),
-        n_questions=st.session_state.get("n_questions"),
-    )
+def handle_reveal_answer_click() -> None:
+    """
+    Callback s.t. we can disable question submit.
+    """
+    st.session_state["await_continue_reason"] = "answer_reveal"
+
+
+def handle_skip_question_click() -> None:
+    """
+    Callback s.t. we clear provided_answer.
+    """
+    state = get_state()
+    state.quiz.skip_question()
+    st.session_state["provided_answer"] = None
+
+
+def handle_continue_click(state: SimpleNamespace, provided_answer: str) -> None:
+    """
+    Callback s.t. we can progress quiz before rerunning.
+    """
+    if state.await_continue_reason == "answer_submission":
+        state.quiz.check_answer(provided_answer, progress_quiz=True)
+    elif state.await_continue_reason == "answer_reveal":
+        state.quiz.reveal_answer(progress_quiz=True)
+    st.session_state["await_continue_reason"] = None
+    st.session_state["provided_answer"] = None
+
+
+def get_state() -> SimpleNamespace:
+    state = SimpleNamespace()
+    update_state(state)
     return state
 
 
-def handle_show_answer(state):
-    answer = state.quiz._current_question.answer
-    st.text(f"The answer is {answer}")
-    st.button("Continue", on_click=state.quiz.reveal_answer)
+def clear_state(state: SimpleNamespace) -> None:
+    for key in STATE_VARIABLES:
+        setattr(state, key, None)
 
 
-def handle_quiz_finish(state):
-    st.balloons()
-    st.header("Finished!")
-    stats = state.quiz.get_stats()
-    st.text(f"Total questions: {stats["n_questions"]}")
-    st.text(f"Correct answers: {stats["n_correct_answers"]}")
-    st.text(f"Correct on first try: {stats["n_first_try"]}")
-    st.text(f"Not answered: {stats["n_unanswered"]}")
-    st.stop()
+def update_state(state: SimpleNamespace) -> None:
+    for key in STATE_VARIABLES:
+        setattr(state, key, st.session_state.get(key))
 
-def generate_feature_groups(locations, _geodf):
-    fg_dict = {}
-    for loc in locations["streets"].keys():
-        for geodf in [_geodf.drive, _geodf.walk]:
-            loc_gdf = geodf[geodf["name"] == loc]
-            if len(loc_gdf) > 0:
-                geo_json = folium.GeoJson(
-                    loc_gdf, style_function=lambda feature: {"color": "red", "weight": 5}
-                )
-                feature_group = folium.FeatureGroup(name=loc)
-                feature_group.add_child(geo_json)
-                fg_dict[loc] = feature_group
-                break # prioritize drive
-        if not fg_dict.get(loc):
-            raise Exception(f"Could not generate geojson for {loc}")
-        else:
-            print(f"Feature group created for {loc}")
-    return fg_dict
-
-
-@st.cache_data
-def get_street_geodf(street, _geodf):
-    return _geodf[_geodf["name"] == street]
-
-
-@st.cache_data
-def create_blank_map():
-    centre_lat = 51.9225
-    centre_lon = 4.47917
-    max_dist = 0.1
-    return folium.Map(
-        location=[centre_lat, centre_lon],
-        zoom_start=13,
-        tiles="cartodb voyagernolabels",
-        max_bounds=True,
-        min_lat=centre_lat - max_dist,
-        max_lat=centre_lat + max_dist,
-        min_lon=centre_lon - max_dist,
-        max_lon=centre_lon + max_dist,
-    )
 
 main()

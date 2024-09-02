@@ -1,6 +1,6 @@
-folium
-geopandas
-pyyaml
-rapidfuzz
-streamlit
-streamlit_folium
+folium==0.17.0
+geopandas==0.14.4
+pyyaml==6.0.2
+rapidfuzz==3.9.5
+streamlit==1.37.0
+streamlit_folium==0.22.0

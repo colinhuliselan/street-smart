@@ -4,12 +4,12 @@ import os
 from types import SimpleNamespace
 
 
-def load_geodfs():
+def load_geodfs() -> None:
     with open(os.path.join("data", f"rdam_gdfs.pkl"), "rb") as file:
         return pickle.load(file)
 
 
-def load_locations():
+def load_locations() -> None:
     with open(os.path.join("data", "locations.json"), "r") as file:
         return json.load(file)
 
